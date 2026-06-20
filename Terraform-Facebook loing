@@ -1,0 +1,133 @@
+provider "aws" {
+
+    region = "us-east-1"
+    access_key = ""
+    secret_key = ""
+}
+# 1. Create VPC with cidr value  -- 10.80.0.0/16
+resource "aws_vpc" "vpc1" {
+
+  cidr_block = "10.81.0.0/16"
+
+   tags = {
+     Name = "awsVPC"
+   }
+ 
+}
+# 2. create aws_internet_gateway 
+resource "aws_internet_gateway" "Ing" {
+    vpc_id = aws_vpc.vpc1.id
+
+    tags = {
+      Name = "VPCING"
+    }
+  
+}
+#  3. Create Custome RouteTable 
+
+ resource "aws_route_table" "VPCRT" {
+ 
+    vpc_id = aws_vpc.vpc1.id
+
+   route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.Ing.id
+   }    
+
+    tags ={
+        Name ="VPC-rt"
+    }
+  }
+  # 4. Create Subnet 10.81.3.0/24
+
+  resource "aws_subnet" "VPCSN" {
+    vpc_id = aws_vpc.vpc1.id
+    cidr_block = "10.81.3.0/24"
+
+tags = {
+    Name ="VPC-SN"
+}   
+  }
+
+  # 5.Associate subnet with route table 
+  resource "aws_route_table_association" "VPCRT-A" {
+    subnet_id = aws_subnet.VPCSN.id
+    route_table_id = aws_route_table.VPCRT.id
+  }
+  # 6.create security group to allow port 22,80,443 or all port traffic 
+  resource "aws_security_group" "VPCSG" {
+  
+   name = "VPC-SG"
+   description = "Allow all traffic"
+   vpc_id = aws_vpc.vpc1.id
+
+   ingress {             #ingress is nothing but In_bound_rules
+    from_port = 22
+    to_port =22
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+       }
+
+       ingress {
+        from_port = 80
+        to_port = 80
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+          
+       }
+       ingress {
+        from_port = 443
+        to_port = 443
+        protocol = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+       }
+       egress {         #engress is not but Out_Bound_rules
+        from_port = 0
+        to_port = 0
+        protocol = "-1"  # -1 represent All outbound Rules like any protocol,any port range etc..
+        cidr_blocks = ["0.0.0.0/0"]
+       }
+       tags = {
+         Name ="VPC_SG"
+       }
+  }
+  # 7.Create a network interface with an IP in the subnet that was created in step 4
+  resource "aws_network_interface" "VPC-ENI" {
+    subnet_id = aws_subnet.VPCSN.id
+    private_ip = "10.81.3.33"
+    security_groups = [aws_security_group.VPCSG.id]
+
+    tags = {
+      Name = "VPC-SG-ENI"
+    }
+  }
+  # 8.Assign an elastics IP to the Network interface Created in step 7
+  resource "aws_eip" "VPC-EIP" {
+   network_interface = aws_network_interface.VPC-ENI.id
+    domain = "vpc"
+
+ # private_ip = aws_network_interface.VPC-ENI.private_ip_[0] 
+
+    tags = {
+      Name = "VPC-EIP"
+    }    
+  }
+  # 9.Create an Ec2 server Launch Application in IT
+
+  resource "aws_instance" "VPC_server" {
+    ami = "ami-0521cb2d60cfbb1a6"
+    instance_type = "t2.micro"
+    key_name = ""
+    network_interface {
+      device_index = 0
+      network_interface_id = aws_network_interface.VPC-ENI.id
+    }
+    user_data = file()
+      tags = {
+      Name ="VPC-FB_server"
+    }
+  }
+  output "FB-EIp" {
+    value = aws_eip.VPC-EIP.public_ip         # FB-EIp = "3.89.14.247"
+    
+  }
