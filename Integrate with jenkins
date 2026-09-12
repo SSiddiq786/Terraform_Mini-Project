@@ -1,0 +1,58 @@
+instance_type =c7i-flex ;storage =10 GB 
+
+1. sudo - i 
+2.vim jenkins.sh 
+yum install maven -y
+sudo yum install maven
+sudo wget -O /etc/yum.repos.d/jenkins.repo     https://pkg.jenkins.io/rpm-stable/jenkins.repo
+sudo yum install java-21-amazon-corretto -y
+yum install jenkins -y
+systemctl start jenkins.service
+systemctl status jenkins.service
+3.sh jenkins.sh
+4.wget https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip    {from terraform official documnet , linux }
+5. configure the aws credentials to jenkins credential block (access-key &secret-access_key )
+6.create a jenkins pipeline 
+7.pipeline {
+   agent any
+     environment {
+     AWS_ACCESS_KEY_ID=credentials ('accesskey')
+    AWS_SECRET_ACCESS_KEY=credentials('secretkey')
+}
+    stages {
+stage('checkout-code'){
+steps{ 
+git 'https://github.com/Milky19/PYTERRA-PROJECT.git'          (our git hub url )
+ }
+}
+stage('Terraform-init'){
+steps{ 
+ sh 'terraform init'
+ }
+}
+stage('Terraform-validate'){
+steps{
+sh 'terraform validate'
+ } 
+}
+stage('Terraform-plan'){
+steps{
+sh 'terraform plan'
+ }
+}
+stages('provisioning'){
+steps{
+  sh terraform $action --auto-approve'     (choose the option is apply & destroy )
+    }
+  }
+ }
+}
+
+
+8. build the pipeline 
+9.terraform script will create resource's, and vpc's,ect.. 
+
+
+
+
+sh 'terraform init'
